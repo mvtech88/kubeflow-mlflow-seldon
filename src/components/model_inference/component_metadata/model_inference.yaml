@@ -1,0 +1,147 @@
+# PIPELINE DEFINITION
+# Name: model-inference
+# Inputs:
+#    batch_size: int
+#    learning_rate: float
+#    model_artifact_path: system.Model
+#    model_name: str
+#    num_epochs: int
+#    test_dir: str
+#    train_dir: str
+# Outputs:
+#    Output: dict
+#    metrics_json_path: system.Artifact
+#    test_loss: system.HTML
+components:
+  comp-model-inference:
+    executorLabel: exec-model-inference
+    inputDefinitions:
+      artifacts:
+        model_artifact_path:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+      parameters:
+        batch_size:
+          parameterType: NUMBER_INTEGER
+        learning_rate:
+          parameterType: NUMBER_DOUBLE
+        model_name:
+          parameterType: STRING
+        num_epochs:
+          parameterType: NUMBER_INTEGER
+        test_dir:
+          parameterType: STRING
+        train_dir:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        metrics_json_path:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+        test_loss:
+          artifactType:
+            schemaTitle: system.HTML
+            schemaVersion: 0.0.1
+      parameters:
+        Output:
+          parameterType: STRUCT
+deploymentSpec:
+  executors:
+    exec-model-inference:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - model_inference
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'pandas' 'matplotlib'\
+          \ && \"$0\" \"$@\"\n"
+        - python3
+        - -m
+        - kfp.dsl.executor_main
+        image: mohitverma1688/model_inference_component:v0.20
+pipelineInfo:
+  name: model-inference
+root:
+  dag:
+    outputs:
+      artifacts:
+        metrics_json_path:
+          artifactSelectors:
+          - outputArtifactKey: metrics_json_path
+            producerSubtask: model-inference
+        test_loss:
+          artifactSelectors:
+          - outputArtifactKey: test_loss
+            producerSubtask: model-inference
+      parameters:
+        Output:
+          valueFromParameter:
+            outputParameterKey: Output
+            producerSubtask: model-inference
+    tasks:
+      model-inference:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-model-inference
+        inputs:
+          artifacts:
+            model_artifact_path:
+              componentInputArtifact: model_artifact_path
+          parameters:
+            batch_size:
+              componentInputParameter: batch_size
+            learning_rate:
+              componentInputParameter: learning_rate
+            model_name:
+              componentInputParameter: model_name
+            num_epochs:
+              componentInputParameter: num_epochs
+            test_dir:
+              componentInputParameter: test_dir
+            train_dir:
+              componentInputParameter: train_dir
+        taskInfo:
+          name: model-inference
+  inputDefinitions:
+    artifacts:
+      model_artifact_path:
+        artifactType:
+          schemaTitle: system.Model
+          schemaVersion: 0.0.1
+    parameters:
+      batch_size:
+        parameterType: NUMBER_INTEGER
+      learning_rate:
+        parameterType: NUMBER_DOUBLE
+      model_name:
+        parameterType: STRING
+      num_epochs:
+        parameterType: NUMBER_INTEGER
+      test_dir:
+        parameterType: STRING
+      train_dir:
+        parameterType: STRING
+  outputDefinitions:
+    artifacts:
+      metrics_json_path:
+        artifactType:
+          schemaTitle: system.Artifact
+          schemaVersion: 0.0.1
+      test_loss:
+        artifactType:
+          schemaTitle: system.HTML
+          schemaVersion: 0.0.1
+    parameters:
+      Output:
+        parameterType: STRUCT
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.7.0

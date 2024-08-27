@@ -1,0 +1,171 @@
+# PIPELINE DEFINITION
+# Name: model-train
+# Inputs:
+#    batch_size: int
+#    export_bucket: str [Default: 'modelbucket']
+#    hidden_units: int
+#    learning_rate: float
+#    model_dir: str
+#    model_name: str
+#    num_epochs: int
+#    test_dir: str
+#    train_dir: str
+# Outputs:
+#    Output: dict
+#    model_artifact_path: system.Model
+#    parameters_json_path: system.Artifact
+#    train_loss: system.HTML
+components:
+  comp-model-train:
+    executorLabel: exec-model-train
+    inputDefinitions:
+      parameters:
+        batch_size:
+          parameterType: NUMBER_INTEGER
+        export_bucket:
+          defaultValue: modelbucket
+          isOptional: true
+          parameterType: STRING
+        hidden_units:
+          parameterType: NUMBER_INTEGER
+        learning_rate:
+          parameterType: NUMBER_DOUBLE
+        model_dir:
+          parameterType: STRING
+        model_name:
+          parameterType: STRING
+        num_epochs:
+          parameterType: NUMBER_INTEGER
+        test_dir:
+          parameterType: STRING
+        train_dir:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        model_artifact_path:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+        parameters_json_path:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+        train_loss:
+          artifactType:
+            schemaTitle: system.HTML
+            schemaVersion: 0.0.1
+      parameters:
+        Output:
+          parameterType: STRUCT
+deploymentSpec:
+  executors:
+    exec-model-train:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - model_train
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'pandas' 'matplotlib'\
+          \ && \"$0\" \"$@\"\n"
+        - python3
+        - -m
+        - kfp.dsl.executor_main
+        image: mohitverma1688/model_train_component:v0.24
+pipelineInfo:
+  name: model-train
+root:
+  dag:
+    outputs:
+      artifacts:
+        model_artifact_path:
+          artifactSelectors:
+          - outputArtifactKey: model_artifact_path
+            producerSubtask: model-train
+        parameters_json_path:
+          artifactSelectors:
+          - outputArtifactKey: parameters_json_path
+            producerSubtask: model-train
+        train_loss:
+          artifactSelectors:
+          - outputArtifactKey: train_loss
+            producerSubtask: model-train
+      parameters:
+        Output:
+          valueFromParameter:
+            outputParameterKey: Output
+            producerSubtask: model-train
+    tasks:
+      model-train:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-model-train
+        inputs:
+          parameters:
+            batch_size:
+              componentInputParameter: batch_size
+            export_bucket:
+              componentInputParameter: export_bucket
+            hidden_units:
+              componentInputParameter: hidden_units
+            learning_rate:
+              componentInputParameter: learning_rate
+            model_dir:
+              componentInputParameter: model_dir
+            model_name:
+              componentInputParameter: model_name
+            num_epochs:
+              componentInputParameter: num_epochs
+            test_dir:
+              componentInputParameter: test_dir
+            train_dir:
+              componentInputParameter: train_dir
+        taskInfo:
+          name: model-train
+  inputDefinitions:
+    parameters:
+      batch_size:
+        parameterType: NUMBER_INTEGER
+      export_bucket:
+        defaultValue: modelbucket
+        isOptional: true
+        parameterType: STRING
+      hidden_units:
+        parameterType: NUMBER_INTEGER
+      learning_rate:
+        parameterType: NUMBER_DOUBLE
+      model_dir:
+        parameterType: STRING
+      model_name:
+        parameterType: STRING
+      num_epochs:
+        parameterType: NUMBER_INTEGER
+      test_dir:
+        parameterType: STRING
+      train_dir:
+        parameterType: STRING
+  outputDefinitions:
+    artifacts:
+      model_artifact_path:
+        artifactType:
+          schemaTitle: system.Model
+          schemaVersion: 0.0.1
+      parameters_json_path:
+        artifactType:
+          schemaTitle: system.Artifact
+          schemaVersion: 0.0.1
+      train_loss:
+        artifactType:
+          schemaTitle: system.HTML
+          schemaVersion: 0.0.1
+    parameters:
+      Output:
+        parameterType: STRUCT
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.7.0

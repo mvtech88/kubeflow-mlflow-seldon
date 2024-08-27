@@ -1,0 +1,60 @@
+# PIPELINE DEFINITION
+# Name: dataset-download
+# Inputs:
+#    base_path: str
+#    url: str
+components:
+  comp-dataset-download:
+    executorLabel: exec-dataset-download
+    inputDefinitions:
+      parameters:
+        base_path:
+          parameterType: STRING
+        url:
+          parameterType: STRING
+deploymentSpec:
+  executors:
+    exec-dataset-download:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - dataset_download
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'pathlib' 'requests'\
+          \ 'kfp-kubernetes' && \"$0\" \"$@\"\n"
+        - python3
+        - -m
+        - kfp.dsl.executor_main
+        image: mohitverma1688/data-download_component:v0.4
+pipelineInfo:
+  name: dataset-download
+root:
+  dag:
+    tasks:
+      dataset-download:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-dataset-download
+        inputs:
+          parameters:
+            base_path:
+              componentInputParameter: base_path
+            url:
+              componentInputParameter: url
+        taskInfo:
+          name: dataset-download
+  inputDefinitions:
+    parameters:
+      base_path:
+        parameterType: STRING
+      url:
+        parameterType: STRING
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.7.0

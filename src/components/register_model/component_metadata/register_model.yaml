@@ -1,0 +1,119 @@
+# PIPELINE DEFINITION
+# Name: register-model
+# Inputs:
+#    aws_access_key_id: str
+#    aws_secret_access_key: str
+#    experiment_name: str
+#    metrics_json_path: system.Artifact
+#    model_artifact_path: system.Model
+#    parameters_json_path: system.Artifact
+# Outputs:
+#    Output: dict
+components:
+  comp-register-model:
+    executorLabel: exec-register-model
+    inputDefinitions:
+      artifacts:
+        metrics_json_path:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+        model_artifact_path:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+        parameters_json_path:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+      parameters:
+        aws_access_key_id:
+          parameterType: STRING
+        aws_secret_access_key:
+          parameterType: STRING
+        experiment_name:
+          parameterType: STRING
+    outputDefinitions:
+      parameters:
+        Output:
+          parameterType: STRUCT
+deploymentSpec:
+  executors:
+    exec-register-model:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - register_model
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'mlflow' 'GitPython'\
+          \ 'numpy' && \"$0\" \"$@\"\n"
+        - python3
+        - -m
+        - kfp.dsl.executor_main
+        image: mohitverma1688/register_model_component:v0.30
+pipelineInfo:
+  name: register-model
+root:
+  dag:
+    outputs:
+      parameters:
+        Output:
+          valueFromParameter:
+            outputParameterKey: Output
+            producerSubtask: register-model
+    tasks:
+      register-model:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-register-model
+        inputs:
+          artifacts:
+            metrics_json_path:
+              componentInputArtifact: metrics_json_path
+            model_artifact_path:
+              componentInputArtifact: model_artifact_path
+            parameters_json_path:
+              componentInputArtifact: parameters_json_path
+          parameters:
+            aws_access_key_id:
+              componentInputParameter: aws_access_key_id
+            aws_secret_access_key:
+              componentInputParameter: aws_secret_access_key
+            experiment_name:
+              componentInputParameter: experiment_name
+        taskInfo:
+          name: register-model
+  inputDefinitions:
+    artifacts:
+      metrics_json_path:
+        artifactType:
+          schemaTitle: system.Artifact
+          schemaVersion: 0.0.1
+      model_artifact_path:
+        artifactType:
+          schemaTitle: system.Model
+          schemaVersion: 0.0.1
+      parameters_json_path:
+        artifactType:
+          schemaTitle: system.Artifact
+          schemaVersion: 0.0.1
+    parameters:
+      aws_access_key_id:
+        parameterType: STRING
+      aws_secret_access_key:
+        parameterType: STRING
+      experiment_name:
+        parameterType: STRING
+  outputDefinitions:
+    parameters:
+      Output:
+        parameterType: STRUCT
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.7.0

@@ -1,0 +1,6 @@
+torch
+mlflow
+seldon-core
+boto3
+pillow
+numpy

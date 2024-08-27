@@ -1,0 +1,38 @@
+---
+apiVersion: machinelearning.seldon.io/v1alpha2
+kind: SeldonDeployment
+metadata:
+  labels:
+    app: seldon
+  name: cnn-tinyvg-seldon
+  namespace: kubeflow
+spec:
+  annotations:
+    project_name: CNN Pipeline
+    deployment_version: v1
+  name: "cnn-tinvg-v1"
+  predictors:
+  - componentSpecs:
+    - spec:
+        containers:
+        - image: mohitverma1688/seldon_serve:v0.6
+          imagePullPolicy: IfNotPresent
+          name: inference
+          resources:
+            requests:
+              memory: 1Mi
+          env:	  
+            - name: MODEL_URI
+              value: "s3://modeloutput/experiments/1/b3b05490b57b4a5ea7373a77e8b09dcd/artifacts/CNN-TinyVG"
+    graph:
+      children: []
+      name: inference
+      endpoint:
+        type: REST
+      type: MODEL
+    name: cnn-tinyvg-v1
+    replicas: 1
+    annotations:
+      predictor_version: "1.0"
+      seldon.io/svc-name: tinyvg-svc
+

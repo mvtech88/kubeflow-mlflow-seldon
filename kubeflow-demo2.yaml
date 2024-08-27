@@ -1,0 +1,581 @@
+# PIPELINE DEFINITION
+# Name: cnn-tinyvg-demo
+# Description: This pipeline is a demo for training,evaluating and deploying Convutional Neural network
+# Inputs:
+#    base_path: str [Default: '/data']
+#    batch_size: int [Default: 32.0]
+#    experiment_name: str [Default: 'CNN-TinyVG-Demo-exp1']
+#    export_bucket: str [Default: 'modeloutput']
+#    hidden_units: int [Default: 10.0]
+#    image_path: str [Default: '/data/test/pizza/1152100.jpg']
+#    learning_rate: float [Default: 0.001]
+#    model_dir: str [Default: '/data/models']
+#    model_name: str [Default: 'cnn_tinyvg_v1']
+#    num_epochs: int [Default: 10.0]
+#    test_dir: str [Default: '/data/test']
+#    train_dir: str [Default: '/data/train']
+#    url: str [Default: 'https://github.com/mrdbourke/pytorch-deep-learning/raw/main/data/pizza_steak_sushi.zip']
+components:
+  comp-createpvc:
+    executorLabel: exec-createpvc
+    inputDefinitions:
+      parameters:
+        access_modes:
+          description: 'AccessModes to request for the provisioned PVC. May
+
+            be one or more of ``''ReadWriteOnce''``, ``''ReadOnlyMany''``, ``''ReadWriteMany''``,
+            or
+
+            ``''ReadWriteOncePod''``. Corresponds to `PersistentVolumeClaim.spec.accessModes
+            <https://kubernetes.io/docs/concepts/storage/persistent-volumes/#access-modes>`_.'
+          parameterType: LIST
+        annotations:
+          description: Annotations for the PVC's metadata. Corresponds to `PersistentVolumeClaim.metadata.annotations
+            <https://kubernetes.io/docs/reference/kubernetes-api/config-and-storage-resources/persistent-volume-claim-v1/#PersistentVolumeClaim>`_.
+          isOptional: true
+          parameterType: STRUCT
+        pvc_name:
+          description: 'Name of the PVC. Corresponds to `PersistentVolumeClaim.metadata.name
+            <https://kubernetes.io/docs/reference/kubernetes-api/config-and-storage-resources/persistent-volume-claim-v1/#PersistentVolumeClaim>`_.
+            Only one of ``pvc_name`` and ``pvc_name_suffix`` can
+
+            be provided.'
+          isOptional: true
+          parameterType: STRING
+        pvc_name_suffix:
+          description: 'Prefix to use for a dynamically generated name, which
+
+            will take the form ``<argo-workflow-name>-<pvc_name_suffix>``. Only one
+
+            of ``pvc_name`` and ``pvc_name_suffix`` can be provided.'
+          isOptional: true
+          parameterType: STRING
+        size:
+          description: The size of storage requested by the PVC that will be provisioned.
+            For example, ``'5Gi'``. Corresponds to `PersistentVolumeClaim.spec.resources.requests.storage
+            <https://kubernetes.io/docs/reference/kubernetes-api/config-and-storage-resources/persistent-volume-claim-v1/#PersistentVolumeClaimSpec>`_.
+          parameterType: STRING
+        storage_class_name:
+          defaultValue: ''
+          description: 'Name of StorageClass from which to provision the PV
+
+            to back the PVC. ``None`` indicates to use the cluster''s default
+
+            storage_class_name. Set to ``''''`` for a statically specified PVC.'
+          isOptional: true
+          parameterType: STRING
+        volume_name:
+          description: 'Pre-existing PersistentVolume that should back the
+
+            provisioned PersistentVolumeClaim. Used for statically
+
+            specified PV only. Corresponds to `PersistentVolumeClaim.spec.volumeName
+            <https://kubernetes.io/docs/reference/kubernetes-api/config-and-storage-resources/persistent-volume-claim-v1/#PersistentVolumeClaimSpec>`_.'
+          isOptional: true
+          parameterType: STRING
+    outputDefinitions:
+      parameters:
+        name:
+          parameterType: STRING
+  comp-dataset-download:
+    executorLabel: exec-dataset-download
+    inputDefinitions:
+      parameters:
+        base_path:
+          parameterType: STRING
+        url:
+          parameterType: STRING
+  comp-deletepvc:
+    executorLabel: exec-deletepvc
+    inputDefinitions:
+      parameters:
+        pvc_name:
+          description: Name of the PVC to delete. Supports passing a runtime-generated
+            name, such as a name provided by ``kubernetes.CreatePvcOp().outputs['name']``.
+          parameterType: STRING
+  comp-model-inference:
+    executorLabel: exec-model-inference
+    inputDefinitions:
+      artifacts:
+        model_artifact_path:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+      parameters:
+        batch_size:
+          parameterType: NUMBER_INTEGER
+        learning_rate:
+          parameterType: NUMBER_DOUBLE
+        model_name:
+          parameterType: STRING
+        num_epochs:
+          parameterType: NUMBER_INTEGER
+        test_dir:
+          parameterType: STRING
+        train_dir:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        metrics_json_path:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+        test_loss:
+          artifactType:
+            schemaTitle: system.HTML
+            schemaVersion: 0.0.1
+      parameters:
+        Output:
+          parameterType: STRUCT
+  comp-model-train:
+    executorLabel: exec-model-train
+    inputDefinitions:
+      parameters:
+        batch_size:
+          parameterType: NUMBER_INTEGER
+        export_bucket:
+          defaultValue: modelbucket
+          isOptional: true
+          parameterType: STRING
+        hidden_units:
+          parameterType: NUMBER_INTEGER
+        learning_rate:
+          parameterType: NUMBER_DOUBLE
+        model_dir:
+          parameterType: STRING
+        model_name:
+          parameterType: STRING
+        num_epochs:
+          parameterType: NUMBER_INTEGER
+        test_dir:
+          parameterType: STRING
+        train_dir:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        model_artifact_path:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+        parameters_json_path:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+        train_loss:
+          artifactType:
+            schemaTitle: system.HTML
+            schemaVersion: 0.0.1
+      parameters:
+        Output:
+          parameterType: STRUCT
+  comp-predict-on-sample-image:
+    executorLabel: exec-predict-on-sample-image
+    inputDefinitions:
+      parameters:
+        aws_access_key_id:
+          parameterType: STRING
+        aws_secret_access_key:
+          parameterType: STRING
+        image_path:
+          parameterType: STRING
+        model_info:
+          parameterType: STRUCT
+        test_dir:
+          parameterType: STRING
+    outputDefinitions:
+      parameters:
+        model_uri:
+          parameterType: STRING
+        pred_label_class:
+          parameterType: STRING
+  comp-register-model:
+    executorLabel: exec-register-model
+    inputDefinitions:
+      artifacts:
+        metrics_json_path:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+        model_artifact_path:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+        parameters_json_path:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+      parameters:
+        aws_access_key_id:
+          parameterType: STRING
+        aws_secret_access_key:
+          parameterType: STRING
+        experiment_name:
+          parameterType: STRING
+    outputDefinitions:
+      parameters:
+        Output:
+          parameterType: STRUCT
+deploymentSpec:
+  executors:
+    exec-createpvc:
+      container:
+        image: argostub/createpvc
+    exec-dataset-download:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - dataset_download
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'pathlib' 'requests'\
+          \ 'kfp-kubernetes' && \"$0\" \"$@\"\n"
+        - python3
+        - -m
+        - kfp.dsl.executor_main
+        image: mohitverma1688/data-download_component:v0.4
+    exec-deletepvc:
+      container:
+        image: argostub/deletepvc
+    exec-model-inference:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - model_inference
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'pandas' 'matplotlib'\
+          \ && \"$0\" \"$@\"\n"
+        - python3
+        - -m
+        - kfp.dsl.executor_main
+        image: mohitverma1688/model_inference_component:v0.20
+    exec-model-train:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - model_train
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'pandas' 'matplotlib'\
+          \ && \"$0\" \"$@\"\n"
+        - python3
+        - -m
+        - kfp.dsl.executor_main
+        image: mohitverma1688/model_train_component:v0.24
+    exec-predict-on-sample-image:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - predict_on_sample_image
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'mlflow' 'GitPython'\
+          \ && \"$0\" \"$@\"\n"
+        - python3
+        - -m
+        - kfp.dsl.executor_main
+        image: mohitverma1688/model_eval_component:v0.8
+    exec-register-model:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - register_model
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'mlflow' 'GitPython'\
+          \ 'numpy' && \"$0\" \"$@\"\n"
+        - python3
+        - -m
+        - kfp.dsl.executor_main
+        image: mohitverma1688/register_model_component:v0.30
+pipelineInfo:
+  description: This pipeline is a demo for training,evaluating and deploying Convutional
+    Neural network
+  displayName: Kubeflow-MlFLow-Demo
+  name: cnn-tinyvg-demo
+root:
+  dag:
+    tasks:
+      createpvc:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-createpvc
+        inputs:
+          parameters:
+            access_modes:
+              runtimeValue:
+                constant:
+                - ReadWriteOnce
+            pvc_name:
+              runtimeValue:
+                constant: kubeflow-pvc8
+            size:
+              runtimeValue:
+                constant: 500Mi
+            storage_class_name:
+              runtimeValue:
+                constant: standard
+        taskInfo:
+          name: createpvc
+      dataset-download:
+        cachingOptions: {}
+        componentRef:
+          name: comp-dataset-download
+        dependentTasks:
+        - createpvc
+        inputs:
+          parameters:
+            base_path:
+              componentInputParameter: base_path
+            url:
+              componentInputParameter: url
+        taskInfo:
+          name: dataset-download
+      deletepvc:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-deletepvc
+        dependentTasks:
+        - createpvc
+        - predict-on-sample-image
+        inputs:
+          parameters:
+            pvc_name:
+              taskOutputParameter:
+                outputParameterKey: name
+                producerTask: createpvc
+        taskInfo:
+          name: deletepvc
+      model-inference:
+        cachingOptions: {}
+        componentRef:
+          name: comp-model-inference
+        dependentTasks:
+        - createpvc
+        - model-train
+        inputs:
+          artifacts:
+            model_artifact_path:
+              taskOutputArtifact:
+                outputArtifactKey: model_artifact_path
+                producerTask: model-train
+          parameters:
+            batch_size:
+              componentInputParameter: batch_size
+            learning_rate:
+              componentInputParameter: learning_rate
+            model_name:
+              componentInputParameter: model_name
+            num_epochs:
+              componentInputParameter: num_epochs
+            test_dir:
+              componentInputParameter: test_dir
+            train_dir:
+              componentInputParameter: train_dir
+        taskInfo:
+          name: model-inference
+      model-train:
+        cachingOptions: {}
+        componentRef:
+          name: comp-model-train
+        dependentTasks:
+        - createpvc
+        - dataset-download
+        inputs:
+          parameters:
+            batch_size:
+              componentInputParameter: batch_size
+            export_bucket:
+              componentInputParameter: export_bucket
+            hidden_units:
+              componentInputParameter: hidden_units
+            learning_rate:
+              componentInputParameter: learning_rate
+            model_dir:
+              componentInputParameter: model_dir
+            model_name:
+              componentInputParameter: model_name
+            num_epochs:
+              componentInputParameter: num_epochs
+            test_dir:
+              componentInputParameter: test_dir
+            train_dir:
+              componentInputParameter: train_dir
+        taskInfo:
+          name: model-train
+      predict-on-sample-image:
+        cachingOptions: {}
+        componentRef:
+          name: comp-predict-on-sample-image
+        dependentTasks:
+        - createpvc
+        - register-model
+        inputs:
+          parameters:
+            aws_access_key_id:
+              runtimeValue:
+                constant: minio
+            aws_secret_access_key:
+              runtimeValue:
+                constant: minio123
+            image_path:
+              componentInputParameter: image_path
+            model_info:
+              taskOutputParameter:
+                outputParameterKey: Output
+                producerTask: register-model
+            test_dir:
+              componentInputParameter: test_dir
+        taskInfo:
+          name: predict-on-sample-image
+      register-model:
+        cachingOptions: {}
+        componentRef:
+          name: comp-register-model
+        dependentTasks:
+        - createpvc
+        - model-inference
+        - model-train
+        inputs:
+          artifacts:
+            metrics_json_path:
+              taskOutputArtifact:
+                outputArtifactKey: metrics_json_path
+                producerTask: model-inference
+            model_artifact_path:
+              taskOutputArtifact:
+                outputArtifactKey: model_artifact_path
+                producerTask: model-train
+            parameters_json_path:
+              taskOutputArtifact:
+                outputArtifactKey: parameters_json_path
+                producerTask: model-train
+          parameters:
+            aws_access_key_id:
+              runtimeValue:
+                constant: minio
+            aws_secret_access_key:
+              runtimeValue:
+                constant: minio123
+            experiment_name:
+              componentInputParameter: experiment_name
+        taskInfo:
+          name: register-model
+  inputDefinitions:
+    parameters:
+      base_path:
+        defaultValue: /data
+        isOptional: true
+        parameterType: STRING
+      batch_size:
+        defaultValue: 32.0
+        isOptional: true
+        parameterType: NUMBER_INTEGER
+      experiment_name:
+        defaultValue: CNN-TinyVG-Demo-exp1
+        isOptional: true
+        parameterType: STRING
+      export_bucket:
+        defaultValue: modeloutput
+        isOptional: true
+        parameterType: STRING
+      hidden_units:
+        defaultValue: 10.0
+        isOptional: true
+        parameterType: NUMBER_INTEGER
+      image_path:
+        defaultValue: /data/test/pizza/1152100.jpg
+        isOptional: true
+        parameterType: STRING
+      learning_rate:
+        defaultValue: 0.001
+        isOptional: true
+        parameterType: NUMBER_DOUBLE
+      model_dir:
+        defaultValue: /data/models
+        isOptional: true
+        parameterType: STRING
+      model_name:
+        defaultValue: cnn_tinyvg_v1
+        isOptional: true
+        parameterType: STRING
+      num_epochs:
+        defaultValue: 10.0
+        isOptional: true
+        parameterType: NUMBER_INTEGER
+      test_dir:
+        defaultValue: /data/test
+        isOptional: true
+        parameterType: STRING
+      train_dir:
+        defaultValue: /data/train
+        isOptional: true
+        parameterType: STRING
+      url:
+        defaultValue: https://github.com/mrdbourke/pytorch-deep-learning/raw/main/data/pizza_steak_sushi.zip
+        isOptional: true
+        parameterType: STRING
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.7.0
+---
+platforms:
+  kubernetes:
+    deploymentSpec:
+      executors:
+        exec-dataset-download:
+          pvcMount:
+          - mountPath: /data
+            taskOutputParameter:
+              outputParameterKey: name
+              producerTask: createpvc
+        exec-model-inference:
+          pvcMount:
+          - mountPath: /data
+            taskOutputParameter:
+              outputParameterKey: name
+              producerTask: createpvc
+        exec-model-train:
+          pvcMount:
+          - mountPath: /data
+            taskOutputParameter:
+              outputParameterKey: name
+              producerTask: createpvc
+        exec-predict-on-sample-image:
+          pvcMount:
+          - mountPath: /data
+            taskOutputParameter:
+              outputParameterKey: name
+              producerTask: createpvc
+        exec-register-model:
+          pvcMount:
+          - mountPath: /data
+            taskOutputParameter:
+              outputParameterKey: name
+              producerTask: createpvc
